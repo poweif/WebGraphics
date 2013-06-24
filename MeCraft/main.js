@@ -1,4 +1,4 @@
-/*
+/*  
  * Copyright (c) 2009 The Chromium Authors. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -45,6 +45,9 @@ var _worldMesh = null;
 var _highlightFace = new Object();
 var _zoomDiff = 0;
 
+var _testImage = new Image();
+var _testTex = null; 
+
 
 var POINT_WIDGET_RANGE = .17;
 
@@ -88,6 +91,9 @@ function main() {
         var mdim = 1 << World.MAX_LEVEL;
         _zoomDiff -= mdim * .02;
     }
+
+    _testTex = new Texture(gl, 0, 0, "1");
+
     init();
 }
 
@@ -235,22 +241,7 @@ function updateMeshes() {
         gl.bufferData(gl.ARRAY_BUFFER, _controlMesh.vertsflat, gl.STATIC_DRAW);
     }
 
-    /*
-    _worldMesh = _world.buildMesh();
-
-    if (_worldMesh.vbo)
-        gl.deleteBuffer(_worldMesh.vbo);
-    _worldMesh.vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, _worldMesh.vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, _worldMesh.vertsflat, gl.STATIC_DRAW);
-
-    if (_worldMesh.nbo)
-        gl.deleteBuffer(_worldMesh.nbo);
-    _worldMesh.nbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, _worldMesh.nbo);
-    gl.bufferData(gl.ARRAY_BUFFER, _worldMesh.normsflat, gl.STATIC_DRAW);
-    */
-    updateHighlightedFace();    
+    updateHighlightedFace();
 }
 
 function updateHighlightedFace() {
@@ -341,20 +332,22 @@ function draw() {
     gl.uniformMatrix4fv(shader.mvInvTLoc, gl.FALSE, mvit32);
     gl.uniformMatrix4fv(shader.mvpLoc, gl.FALSE, mvp32);
 
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, _testTex.id);
+    gl.uniform1i(shader.quadtex, 0);
+
     var bucs = _world.bmBuckets.buckets;
     for (var i = 0; i < bucs.length; i++) {
         if (bucs[i].vbo && bucs[i].nbo) {
-           // for (var j = 0; j < bucs[i].length; j++) {
-           //     bucs[
-           // }
-            //log("in here " + bucs[i].verts.length);
             gl.bindBuffer(gl.ARRAY_BUFFER, bucs[i].vbo);
             gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
             gl.bindBuffer(gl.ARRAY_BUFFER, bucs[i].nbo);
             gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER, bucs[i].tbo);
+            gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
             gl.enableVertexAttribArray(0);
             gl.enableVertexAttribArray(1);
-
+            gl.enableVertexAttribArray(2);
             gl.drawArrays(gl.TRIANGLES, 0, bucs[i].verts.length / 3)
         }
     }
@@ -368,6 +361,7 @@ function draw() {
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
         gl.enableVertexAttribArray(0);
         gl.disableVertexAttribArray(1);
+        gl.disableVertexAttribArray(2);
         gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     }
 }

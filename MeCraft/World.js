@@ -77,9 +77,7 @@ BlockMeshBuckets.prototype = {
 
     addBlock: function (b) {
         var bb = this.buildBlock(b);
-        //log("adding: " + bb[0] + " " + bb[1] + " " + bb[2] + " " + bb.id);
         this.id2num[bb.id] = this.nblocks;
-        //log(bb.id + " " + this.id2num[bb.id]);
         this.buckets[this.nblocks % this.nbuckets].addItem(bb);
         this.nblocks++;
     },
@@ -106,10 +104,8 @@ BlockMeshBuckets.prototype = {
         for (var i = 0; i < this.bqueue.length; i++) {
             var bb = this.buildBlock(this.bqueue[i]);
            
-           // log("a " + bb.id + " " +  this.id2num[bb.id]);
             if (this.id2num[bb.id] != 0 && !this.id2num[bb.id]) 
                 continue;
-           // log("b");
 
             this.updateMeshQ[this.id2num[bb.id] % this.nbuckets] = this.id2num[bb.id] % this.nbuckets;
             this._updateBlock(this.bqueue[i]);
@@ -125,7 +121,6 @@ BlockMeshBuckets.prototype = {
         var ret = []; 
         for (var i in this.updateMeshQ) {
             if (this.buckets[i].changedMesh) {
-                //log("i: " + i + " " + this.buckets[i].changedMesh);
                 this.buckets[i].makeMeshArray();
                 ret.push(i);
             }
@@ -136,7 +131,6 @@ BlockMeshBuckets.prototype = {
     // should the GL stuff go here?  I wonder
     updateGLMeshes: function () {
         var updates = this._updateMesh();
-        log("updating!! " + updates.length);
         for (var i = 0; i < updates.length; i++) {
             var buc = this.buckets[updates[i]];
             if (buc.vbo) 
@@ -146,12 +140,16 @@ BlockMeshBuckets.prototype = {
 
             buc.vbo = this.gl.createBuffer();
             buc.nbo = this.gl.createBuffer();
+            buc.tbo = this.gl.createBuffer(); 
 
             this.gl.bindBuffer(gl.ARRAY_BUFFER, buc.vbo);
             this.gl.bufferData(gl.ARRAY_BUFFER, buc.verts, gl.STATIC_DRAW);
 
             this.gl.bindBuffer(gl.ARRAY_BUFFER, buc.nbo);
             this.gl.bufferData(gl.ARRAY_BUFFER, buc.norms, gl.STATIC_DRAW);
+
+            this.gl.bindBuffer(gl.ARRAY_BUFFER, buc.tbo);
+            this.gl.bufferData(gl.ARRAY_BUFFER, buc.texcoords, gl.STATIC_DRAW);
         }
     }
 }
@@ -161,6 +159,7 @@ Bucket = function (w, id) {
     this.world = w;
     this.verts = null;
     this.normals = null;
+    this.texcoords = null; 
     this.faces = new Object();
     this.changedMesh = false;
     this.id = id; 
@@ -192,7 +191,6 @@ Bucket.prototype = {
             return;
         }
 
-         //log("updating: " + item);
 
         this.faces[item.id] = [];
         for (var i = 0; i < 6; i++) {
@@ -212,11 +210,9 @@ Bucket.prototype = {
             if (res) {
                 this.faces[item.id].push(i);
  
-               // log("pushing: " + i + " for " + item.id);
             }
         }
-       // log("bucket: " + this.id);
-       // log(this.faces);
+
         this.changedMesh = true;
     },
 
@@ -247,6 +243,7 @@ Bucket.prototype = {
         var onev = THREE.Vector3(1, 1, 1);
         var verts = [];
         var norms = [];
+        var texcoords = [];
         //log("items: " + items.length);
         for (var i = 0; i < this.items.length; i++) {
             var pos = this.world.hash[this.items[i].id];
@@ -266,6 +263,12 @@ Bucket.prototype = {
                         norms.push(-n.y);
                         norms.push(-n.z);
                     }
+                    texcoords.push(0);
+                    texcoords.push(0);
+                    texcoords.push(1);
+                    texcoords.push(0);            
+                    texcoords.push(1);
+                    texcoords.push(1);
                     
                     for (var k = 2; k <= 4; k++) {
                         var p = Block.cubeVerts[thisface[k%4]];
@@ -277,16 +280,20 @@ Bucket.prototype = {
                         norms.push(-n.z);
                     }
                     
+                    texcoords.push(1);
+                    texcoords.push(1);
+                    texcoords.push(0);
+                    texcoords.push(1);            
+                    texcoords.push(0);
+                    texcoords.push(0);                                 
                 }
             }
         }
 
-        //for (var j = 0; j < 10; j++)
-         //   log(verts[j * 3] + " " + verts[j * 3 + 1] + " " + verts[j * 3 + 2]);
 
         this.verts = new Float32Array(verts);
         this.norms = new Float32Array(norms);
-        //log("verts: " + verts.length);
+        this.texcoords = new Float32Array(texcoords);
         this.changedMesh = false;
     }
 }
@@ -542,7 +549,6 @@ World.prototype = {
     runUpdate: function() { 
         this.bmBuckets.processUpdateQueue();
         this.bmBuckets.updateGLMeshes();
-        log("updating");
     }, 
 
     buildMesh: function () {

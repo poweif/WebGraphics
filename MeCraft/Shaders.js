@@ -1,84 +1,73 @@
-var PHONG_VERT_SRC = [
-    "uniform mat4 modelview;",
-    "uniform mat4 modelviewInvT;",
-    "uniform mat4 modelviewProj;",
-    "attribute vec4 vertex; ",
-    "attribute vec3 normal; ",
-    "",
-    "varying vec3 worldEyeVec;",
-    "varying vec3 worldNormal;",
-    "varying vec3 worldPos;",
-    "",
-    "void main() {",
-    "  gl_Position = modelviewProj * vec4(vertex.xyz, 1.);",
-    "  worldNormal = (modelviewInvT * vec4(normal, 0.)).xyz;",
-    "  worldPos = (modelview * vec4(vertex.xyz, 1.)).xyz;",
-    "  worldEyeVec = normalize(worldPos);",
-    "}"
-].join("\n");
+var PHONG_VERT_SRC = 
+    "uniform mat4 modelview;\n\
+     uniform mat4 modelviewInvT;\n\
+     uniform mat4 modelviewProj;\n\
+     attribute vec4 vertex;\n\
+     attribute vec3 normal;\n\
+     attribute vec2 texcoord;\n\
+     varying vec3 worldEyeVec;\n\
+     varying vec3 worldNormal;\n\
+     varying vec3 worldPos;\n\
+     varying vec2 worldTex;\n\
+     void main() {\n\
+       gl_Position = modelviewProj * vec4(vertex.xyz, 1.);\n\
+       worldNormal = (modelviewInvT * vec4(normal, 0.)).xyz;\n\
+       worldPos = (modelview * vec4(vertex.xyz, 1.)).xyz;\n\
+       worldEyeVec = normalize(worldPos);\n\
+       worldTex = texcoord;\n\
+     }"
 
-var PHONG_FRAG_SRC = [
-    "precision mediump float;\n",
-    "",
-    "varying vec3 worldEyeVec;",
-    "varying vec3 worldNormal;",
-    "varying vec3 worldPos;",
-    "",
-    "void main() {",
-    "  float specCoeff = 10.0; ",
-    "  vec3 lightpos = vec3(0,1.5,5);",
-    "  vec3 L = normalize(lightpos-worldPos);",
-    "  vec3 N = normalize(worldNormal);",
-    "  vec3 R = 2.*dot(N,L)*N-L; ",
-    "  vec3 V = worldEyeVec; ",
-    "  float diff = dot(N,L)*.6;",
-    "  float amb = .3;",
-    "  float spec = (pow(dot(R,V),specCoeff) * .5);",
-    "  gl_FragColor = vec4(vec3(.7,.99,.7)*(amb+diff) + vec3(spec),1);",
-    "}"
-].join("\n");
+var PHONG_FRAG_SRC = 
+    "precision mediump float;\n\
+     varying vec3 worldEyeVec;\n\
+     varying vec3 worldNormal;\n\
+     varying vec3 worldPos;\n\
+     varying vec2 worldTex;\n\
+     uniform sampler2D quadTex;\n\
+     void main() {\n\
+      float specCoeff = 10.0;\n\
+      vec3 lightpos = vec3(0,1.5,5);\n\
+      vec3 L = normalize(lightpos-worldPos);\n\
+      vec3 N = normalize(worldNormal);\n\
+      vec3 R = 2.*dot(N,L)*N-L;\n\
+      vec3 V = worldEyeVec;\n\
+      float diff = dot(N,L)*.6;\n\
+      float amb = .3;\n\
+      float spec = (pow(dot(R,V),specCoeff) * .5);\n\
+      vec4 tc = texture2D(quadTex, worldTex);\n\
+      gl_FragColor = vec4(tc.xyz*(amb+diff) + vec3(spec), 1);\n\
+    }"
 
-var WIRE_VERT_SRC = [
-    "uniform mat4 modelviewProj;",
-    "attribute vec4 vertex; ",
-    "",
-    "",
-    "void main() {",
-    "  gl_PointSize = 5.; ",
-    "  gl_Position = modelviewProj * vec4(vertex.xyz, 1.);",
-    "}"
-].join("\n");
+var WIRE_VERT_SRC = 
+    "uniform mat4 modelviewProj;\n\
+     attribute vec4 vertex;\n\
+     void main() {\n\
+      gl_PointSize = 5.;\n\
+      gl_Position = modelviewProj * vec4(vertex.xyz, 1.);\n\
+     }"
 
-var WIRE_FRAG_SRC = [
-    "precision mediump float;\n",
-    "",
-    "void main() {",
-    "  gl_FragColor = vec4(0,0,0,1);",
-    "}"
-].join("\n");
+var WIRE_FRAG_SRC = 
+    "precision mediump float;\n\
+     void main() {\n\
+       gl_FragColor = vec4(0,0,0,1);\n\
+    }"
 
-var POINTWIDGET_VERT_SRC = [
-    "uniform mat4 modelviewProj;",
-    "uniform vec4 color;",
-    "attribute vec4 vertex; ",
-    "",
-    "varying vec4 ocolor; ",
-    "",
-    "void main() {",
-    "  gl_Position = modelviewProj * vec4(vertex.xyz, 1.);",
-    "  ocolor = color; ",
-    "}"
-].join("\n");
+var POINTWIDGET_VERT_SRC = 
+    "uniform mat4 modelviewProj;\n\
+     uniform vec4 color;\n\
+     attribute vec4 vertex;\n\
+     varying vec4 ocolor;\n\
+     void main() {\n\
+       gl_Position = modelviewProj * vec4(vertex.xyz, 1.);\n\
+       ocolor = color;\n\
+     }"
 
-var POINTWIDGET_FRAG_SRC = [
-    "precision mediump float;\n",
-    "",
-    "varying vec4 ocolor; ",
-    "void main() {",
-    "  gl_FragColor = ocolor;",
-    "}"
-].join("\n");
-
+var POINTWIDGET_FRAG_SRC = 
+    "precision mediump float;\n\
+     varying vec4 ocolor;\n\
+     void main() {\n\
+      gl_FragColor = ocolor;\n\
+     }"
 
 function loadShader(gl, type, shaderSrc) {
     var shader = gl.createShader(type);
@@ -105,6 +94,7 @@ function initPhongShaders(gl) {
     // Bind Attributes
     gl.bindAttribLocation(programObject, 0, "vertex");
     gl.bindAttribLocation(programObject, 1, "normal");
+    gl.bindAttribLocation(programObject, 2, "texcoord");
     
     // Link the program
     gl.linkProgram(programObject);
@@ -122,6 +112,8 @@ function initPhongShaders(gl) {
     ret.mvLoc = gl.getUniformLocation(programObject, "modelview");
     ret.mvInvTLoc = gl.getUniformLocation(programObject, "modelviewInvT");
     ret.mvpLoc = gl.getUniformLocation(programObject, "modelviewProj");
+    ret.quadTex = gl.getUniformLocation(programObject, "quadTex");
+
 
     return ret;
 }
