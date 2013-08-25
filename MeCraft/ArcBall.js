@@ -1,3 +1,4 @@
+/// <reference path="index.html" />
 /// <reference path="Geometry.js" />
 ArcBall = function (NewWidth, NewHeight) {
     this.AdjustWidth = 1 / ((NewWidth - 1) * .5);
@@ -40,7 +41,7 @@ ArcBall.prototype = {
         this.mapToSphere(NewPt,this.StVec);
     },
 
-    draw: function (NewPt, NewRot) {
+    drag: function (NewPt, NewRot) {
         this.mapToSphere(NewPt, this.EnVec);
     
         if (NewRot) {
@@ -68,9 +69,9 @@ ArcBall.prototype = {
         var zz = q.z * s.z;
 
         NewObj.set(
-            1 - (yy + zz), x.y - w.z, x.z + w.y,0,
-            x.y + w.z, 1 - x.x + zz, yz - w.x,0,
-            x.z - w.y, yz + w.x, 1 - (x.x + yy),0,
-            0,0,0,1);
+            1 - (yy + zz), x.y - w.z, x.z + w.y, 0,
+            x.y + w.z, 1 - x.x + zz, yz - w.x, 0,
+            x.z - w.y, yz + w.x, 1 - (x.x + yy), 0,
+            0, 0, 0, 1);
     }
 }

@@ -28,36 +28,13 @@ Block.cubeVerts = [
     new THREE.Vector3(0, 1, 1),
     new THREE.Vector3(1, 1, 1)];
 
-
-LongBinary = function (L) {
-    this.list = [];
-    for (var i = 0; i < L / 32 + 1; i++) 
-        this.list.push(0 | 0);
-    this.length = L;
-}
-
-LongBinary.prototype = {
-    constructor: LongBinary,
-    read: function (ind) {
-        return (this.list[(ind / 32) | 0] & (1 << (ind % 32))) !=0;
-    },
-
-    write: function (ind, val) {        
-        if(val)
-            this.list[(ind/32)|0] = this.list[(ind / 32) | 0] | (1 << (ind % 32));
-        else
-            this.list[(ind/32)|0] = this.list[(ind / 32) | 0] & ~(1 << (ind % 32));
-    }
-}
-
-
 BlockMeshBuckets = function (nb, w) {
     this.nbuckets = nb;
     this.world = w;
     this.gl = this.world.gl;
-    this.nblocks = 0;
-    this.bqueue = [];
-    this.id2num = new Object();
+    this.counter = 1;
+    this.bqueue = new Object();
+    this.dqueue = new Object();
 
     this.buckets = [];
     for (var i = 0; i < nb; i++)
@@ -69,52 +46,46 @@ BlockMeshBuckets = function (nb, w) {
 BlockMeshBuckets.prototype = {
     constructor: BlockMeshBuckets,
 
-    buildBlock: function(b){
-        var ret = [b[0],b[1],b[2],World.MAX_LEVEL];
-        ret.id = this.world.ind3d(ret);
-        return ret;     
+    addBlock: function (bid) {
+        this.buckets[bid % this.nbuckets].addBlock(bid);
+        this.counter++;
+        this.addToUpdateQueue(bid);
     },
 
-    addBlock: function (b) {
-        var bb = this.buildBlock(b);
-        this.id2num[bb.id] = this.nblocks;
-        this.buckets[this.nblocks % this.nbuckets].addItem(bb);
-        this.nblocks++;
+    removeBlock: function (bid){
+        this.buckets[bid % this.nbuckets].removeBlock(bid);
+        this.addToDeleteQueue(bid);
     },
 
-    removeBlock: function (b){
-        var bb = this.buildBlock(b);
-        if (!this.id2num[bb.id])
-            return;
-        this.buckets[this.id2num[bb.id] % this.nbuckets].removeItem(bb);
-        this.nblocks--;
+    _updateBlock: function (bid) {
+        this.buckets[bid % this.nbuckets].updateBlock(bid);
     },
 
-    _updateBlock: function (b) {
-        var bb = this.buildBlock(b);
-        if (!this.id2num[bb.id])
-            return;
-        this.buckets[this.id2num[bb.id] % this.nbuckets].updateItem(bb);
-    },
-
-    processUpdateQueue: function () {
+    processQueues: function () {
         this.updateMeshQ = new Object();
-        log("updating mesh q: " + this.bqueue.length);
-
-        for (var i = 0; i < this.bqueue.length; i++) {
-            var bb = this.buildBlock(this.bqueue[i]);
-           
-            if (this.id2num[bb.id] != 0 && !this.id2num[bb.id]) 
+        for (var bid in this.bqueue) {
+            if (this.dqueue[bid]) 
                 continue;
 
-            this.updateMeshQ[this.id2num[bb.id] % this.nbuckets] = this.id2num[bb.id] % this.nbuckets;
-            this._updateBlock(this.bqueue[i]);
+            this.updateMeshQ[bid % this.nbuckets] = bid % this.nbuckets;
+            this._updateBlock(bid);
         }
-        this.bqueue = [];
+        this.bqueue = new Object();
+
+        for (var bid in this.dqueue) {
+            this.updateMeshQ[bid % this.nbuckets] = bid % this.nbuckets;
+        }
+        this.dqueue = new Object(); 
     },
 
-    addToUpdateQueue: function (b) {
-        this.bqueue.push(b);
+    addToUpdateQueue: function (bid) {
+        if(bid>=0)
+            this.bqueue[bid] = bid;
+    },
+
+    addToDeleteQueue: function (bid) {
+        if(bid>=0)
+            this.dqueue[bid] = bid;
     },
 
     _updateMesh: function () {
@@ -155,7 +126,7 @@ BlockMeshBuckets.prototype = {
 }
 
 Bucket = function (w, id) {
-    this.items = [];   
+    this.blocks = [];   
     this.world = w;
     this.verts = null;
     this.normals = null;
@@ -168,31 +139,28 @@ Bucket = function (w, id) {
 Bucket.prototype = {
     constructor: Bucket,
 
-    addItem: function (i) {
-        //log("adding: " + i);
-        this.items.push(i);
-        this.world.bmBuckets.addToUpdateQueue([i[0] + 1, i[1], i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0] - 1, i[1], i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1] + 1, i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1] - 1, i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2] + 1]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2] - 1]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2]]);
-        this.updateItem(i);
+    addBlock: function (bid) {
+        var i = this.world.hash[bid];
+        this.blocks.push(bid);
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0] + 1, i[1], i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0] - 1, i[1], i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1] + 1, i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1] - 1, i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2] + 1, World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2] - 1, World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2], World.MAX_LEVEL]));
+        this.updateBlock(bid);
         this.changedMesh = true;
     },
     
-    updateItem: function (item) {
-        if (item.id == 355)
-            log("goodbye! " + this.id);
-        //log("present: " + item);
-        if (!this.world.blockPresent(item[0], item[1], item[2])) {
-            //log("does not exist!!!");
+    updateBlock: function (bid) {
+        var item = this.world.hash[bid];
+        if (!item) {
+            if (this.faces[bid])
+                delete this.faces[bid];
             return;
         }
-
-
-        this.faces[item.id] = [];
+        this.faces[bid] = [];
         for (var i = 0; i < 6; i++) {
             if (i == Block.XY0)
                 res = !this.world.blockPresent(item[0], item[1], item[2] - 1);
@@ -208,33 +176,36 @@ Bucket.prototype = {
                 res = !this.world.blockPresent(item[0], item[1] + 1, item[2]);
 
             if (res) {
-                this.faces[item.id].push(i);
- 
-            }
+                this.faces[bid].push(i);
+             }
         }
 
         this.changedMesh = true;
     },
 
-    removeItem: function (i) {
-        var nitems = [];
+    removeBlock: function (bid) {
+        var nblocks = [];
+        var i = this.world.hash[bid];
+        if (!i)
+            return;
         // change this to allow for array deletion instead of manual deletion
-        for (var j = 0; j < this.items.length; j++) {
-            if (this.items[j][0] != i[0] || this.items[j][1] != i[1] || this.items[j][2] != i[2])
-                nitems.push(this.items[j]);
+        for (var j = 0; j < this.blocks.length; j++) {
+            if (this.blocks[j] == bid)
+                continue;
+            nblocks.push(this.blocks[j]);
         }
-        this.items = nitems;
+        this.blocks = nblocks;
 
-        this.items.push(i);
-        this.world.bmBuckets.addToUpdateQueue([i[0] + 1, i[1], i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0] - 1, i[1], i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1] + 1, i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1] - 1, i[2]]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2] + 1]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2] - 1]);
-        this.world.bmBuckets.addToUpdateQueue([i[0], i[1], i[2]]);
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0] + 1, i[1], i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0] - 1, i[1], i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1] + 1, i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1] - 1, i[2], World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2] + 1, World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2] - 1, World.MAX_LEVEL]));
+        this.world.bmBuckets.addToUpdateQueue(this.world.ind3d([i[0], i[1], i[2], World.MAX_LEVEL]));
 
-        delete this.faces[i.id];
+        if(this.faces[bid])
+            delete this.faces[bid];
 
         this.changedMesh = true;
     },
@@ -244,20 +215,18 @@ Bucket.prototype = {
         var verts = [];
         var norms = [];
         var texcoords = [];
-        //log("items: " + items.length);
-        for (var i = 0; i < this.items.length; i++) {
-            var pos = this.world.hash[this.items[i].id];
+        for (var i = 0; i < this.blocks.length; i++) {
+            var pos = this.world.hash[this.blocks[i]];
             if (pos) {
                 var ca = new THREE.Vector3(pos[0], pos[1], pos[2]);
-                var fs = this.faces[this.items[i].id];
-                //log("faces: " + fs);
+                var fs = this.faces[this.blocks[i]];
                 for (var j = 0; j < fs.length; j++) {
                     var n = this.world.gnorms[fs[j]];
                     var thisface = Block.cubeFaces[fs[j]];
                     for (var k = 0; k < 3; k++) {
                         var p = Block.cubeVerts[thisface[k]];
-                        verts.push(p.x+pos[0]);
-                        verts.push(p.y+pos[1]);
+                        verts.push(p.x + pos[0]);
+                        verts.push(p.y + pos[1]);
                         verts.push(p.z + pos[2]);
                         norms.push(-n.x);
                         norms.push(-n.y);
@@ -272,9 +241,9 @@ Bucket.prototype = {
                     
                     for (var k = 2; k <= 4; k++) {
                         var p = Block.cubeVerts[thisface[k%4]];
-                        verts.push(p.x+pos[0]);
-                        verts.push(p.y+pos[1]);
-                        verts.push(p.z+pos[2]);
+                        verts.push(p.x + pos[0]);
+                        verts.push(p.y + pos[1]);
+                        verts.push(p.z + pos[2]);
                         norms.push(-n.x);
                         norms.push(-n.y);
                         norms.push(-n.z);
@@ -289,7 +258,6 @@ Bucket.prototype = {
                 }
             }
         }
-
 
         this.verts = new Float32Array(verts);
         this.norms = new Float32Array(norms);
@@ -324,16 +292,13 @@ World = function (ogl) {
     this.levelsum = [];
     for (var i = 0; i <= World.MAX_LEVEL; i++) {
         var len = (1 << i);
-        if (this.levelsum.length > 0)
+        if (i > 0)
             this.levelsum.push(this.levelsum[i - 1] + len * len * len);
         else
             this.levelsum.push(1);
     }
     this.levelsum[-1] = 0;
-
-    this.nodePresent = new LongBinary(this.levelsum[World.MAX_LEVEL]);
     this.bmBuckets = new BlockMeshBuckets(100, this);
-    //log("n: " + this.bmBuckets.nbuckets);
 
     this.rlen = [];
     this.rlen2 = [];
@@ -361,17 +326,20 @@ World = function (ogl) {
     }
 
     this.root = [0, 0, 0, 0];
-
     this.runUpdate();
 }
 
-
-World.MAX_LEVEL = 4;
+World.MAX_LEVEL = 4; 
 
 World.prototype = {
     constructor: World,
 
     ind3d: function (node) {
+        if (node[0] < 0 || node[0] >= this.rlen[node[3]] ||
+            node[1] < 0 || node[1] >= this.rlen[node[3]] ||
+            node[2] < 0 || node[2] >= this.rlen[node[3]])
+            return -1;
+
         return this.levelsum[node[3] - 1] +
             (node[0] + node[1] * this.rlen[node[3]] + node[2] * this.rlen2[node[3]]);
     },
@@ -468,7 +436,7 @@ World.prototype = {
                     var a = [nx, ny, nz, l];
                     var ind = this.ind3d(a);
                     
-                    if (this.nodePresent.read(ind)) {
+                    if (this.hash[ind]) {
 
                         var tres = this.intersectRec(a, raypt, raydir);
                         res = res || tres[0];
@@ -483,44 +451,42 @@ World.prototype = {
             }
         }
 
-        return [false, Number.POSITIVE_INFINITY, null,-1];
+        return [false, Number.POSITIVE_INFINITY, null, -1];
     },
 
     addBlock: function (x, y, z) {        
         var level = World.MAX_LEVEL;
-        var ind = this.ind3d([x, y, z, level]);
-        var mdim = 1 << level;
-        if (x >= mdim || y >= mdim || z >= mdim || x < 0 || y < 0 || z < 0)
-            return;
+        var ind = this.ind3d([x, y, z, World.MAX_LEVEL]);
+        var mdim = 1 << World.MAX_LEVEL;
+        if (ind < 0) return;
 
-        this.hash[ind] = [x, y, z];
         var ox = x, oy = y, oz = z;
         while (level >= 0) {
-       
-            this.nodePresent.write(ind, true);            
+            this.hash[ind] = [x, y, z];
             level--;
             if (level < 0) break;
             x = (x >> 1);
             y = (y >> 1);
             z = (z >> 1);
             ind = this.ind3d([x, y, z, level]);
-            if (this.nodePresent.read(ind))
-                break;            
+            if (this.hash[ind])
+                break;           
         }
-        this.bmBuckets.addBlock([ox, oy, oz]);
+        this.bmBuckets.addBlock(this.ind3d([ox, oy, oz, World.MAX_LEVEL]));
     },
 
     removeBlock: function (x, y, z) {
         var level = World.MAX_LEVEL;
-        var ind = this.ind3d([x, y, z, level]);
-        var mdim = 1 << level;
+        var ind = this.ind3d([x, y, z, World.MAX_LEVEL]);
+        if (ind < 0) return;
+        var mdim = 1 << World.MAX_LEVEL;
         if (x >= mdim || y >= mdim || z >= mdim || x < 0 || y < 0 || z < 0)
             return;
 
-        delete this.hash[ind];
+        var toDelete = []; 
         var ox = x, oy = y, oz = z;
         outer: while (level >= 0) {
-            this.nodePresent.write(ind, false);
+            toDelete.push(ind);
             level--;
             if (level < 0) break;
             x = (x >> 1);
@@ -538,61 +504,27 @@ World.prototype = {
 
                 var nind = this.ind3d([nx, ny, nz, level+1]);
 
-                if (this.nodePresent.read(nind))
+                if (this.hash[nind])
                     break outer; 
             }
         }
-        this.bmBuckets.removeBlock([ox, oy, oz]);
-      //  this.bmBuckets.processUpdateQueue();
+        this.bmBuckets.removeBlock(this.ind3d([ox, oy, oz, World.MAX_LEVEL]));
+
+        for (var i = 0; i < toDelete.length; i++) {
+            delete this.hash[toDelete[i]];
+        }
     },
 
     runUpdate: function() { 
-        this.bmBuckets.processUpdateQueue();
+        this.bmBuckets.processQueues();
         this.bmBuckets.updateGLMeshes();
     }, 
-
-    buildMesh: function () {
-        var ret = new RMesh(); 
-        var dim = this.rlen[World.MAX_LEVEL];
-        var dimp1 = dim + 1;
-        for (var z = 0; z <= dim; z++) {
-            for (var y = 0; y <= dim; y++) {                
-                for (var x = 0; x <= dim; x++) {
-                    ret.addVert(x, y, z);
-                }
-            }
-        }
-
-        var faces = [
-            [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
-            [[0, 0, 0], [0, 1, 0], [0, 1, 1], [0, 0, 1]],
-            [[1, 0, 0], [1, 0, 1], [1, 1, 1], [1, 1, 0]],
-            [[0, 0, 1], [0, 1, 1], [1, 1, 1], [1, 0, 1]],
-            [[0, 0, 0], [0, 0, 1], [1, 0, 1], [1, 0, 0]],
-            [[0, 1, 0], [1, 1, 0], [1, 1, 1], [0, 1, 1]]];
-
-        for (var block in this.hash) {
-            var coord = this.hash[block];
-            for (var j = 0; j < faces.length; j++) {
-                var inds = [];
-                for (var k = 0; k < faces[j].length; k++) {
-                    var ncoord = [coord[0] + faces[j][k][0], coord[1] + faces[j][k][1], coord[2] + faces[j][k][2]];
-                    inds.push(ncoord[0] + ncoord[1] * dimp1 + ncoord[2] * dimp1 * dimp1);
-                }
-                ret.addQuad(inds[0], inds[1], inds[2], inds[3]);
-            }
-        }
-
-        ret.updateNormals(RMesh.PER_FACE_NORMALS);
-        ret.updateGLArray(RMesh.DRAW_ARRAY_UPDATE);
-
-        return ret;
-    },
 
     blockPresent: function (x, y, z) {
         var dim = 1<<World.MAX_LEVEL;
         if(x<0||y<0||z<0||x>=dim||y>=dim||z>=dim) return false;
         var nind = this.ind3d([x, y, z, World.MAX_LEVEL]);
-        return (this.nodePresent.read(nind));
+        return (this.hash[nind]);
     }
+    
 }

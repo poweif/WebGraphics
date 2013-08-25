@@ -44,7 +44,9 @@
 // of a drag action.
 
 function unproject(winx, winy, winz, mvpinv, width, height) {
-    var ivec = new THREE.Vector4((winx * 1. / width) * 2 - 1, (winy * 1. / height) * 2 - 1, winz * 2 - 1, 1.0);
+    var ivec = new THREE.Vector4((winx * 1. / width) * 2 - 1, 
+				 (winy * 1. / height) * 2 - 1, 
+				 winz * 2 - 1, 1.0);
     ivec.applyMatrix4(mvpinv);
     ivec.multiplyScalar(1 / ivec.w);
     return new THREE.Vector3(ivec.x, ivec.y, ivec.z);
@@ -54,22 +56,25 @@ InputController = function(doc,element,cm,wd) {
     var ctl = this;
     this.xRot = 0;
     this.yRot = 0;
+
     this.scaleFactor = 3.0;
-    this.dragging = false;
-    this.curX = 0;
-    this.curY = 0;
-    this.modelview = new Matrix4x4();
-    this.proj = new Matrix4x4();;
-    this.modelviewProj = new Matrix4x4();
+    this.dragging_ = false;
+    this.curMouse_ = THREE.Vector2();
+    this.modelview = new THREE.Matrix4();
+    this.proj = new THREE.Matrix4();
+    this.modelviewProj = new THREE.Matrix4();
+    this.modelviewProjInv = new THREE.Matrix4();
     this.modelviewProjInvTHREE = new THREE.Matrix4();
-    this.updateMat();
     this.canvas_ = element;
-    this.cmesh = cm;
-    this.selectedVertInd = -1;
-    this.selectedAxis = -1;
-    this.holdchar = '';
-    this.transStPos = null;
-    this.transOrigPos = null;
+    //this.cmesh = cm;
+    this.selectedVertInd_ = -1;
+    this.selectedAxis_ = -1;
+    this.holdchar_ = '';
+
+    this.updateMat();
+
+    this.arcball_ = new ArcBall(ctl.canvas_.width, ctl.canvas_.height);
+    this.thisRot_ = new THREE.Matrix4();
 
     this.highlightedFace = null;
 
@@ -130,25 +135,25 @@ InputController = function(doc,element,cm,wd) {
 
         var canvasWidth = ctl.canvas_.width;
         var canvasHeight = ctl.canvas_.height;
-        ctl.curX = ev.clientX - rect.left;
-        ctl.curY = ev.clientY - rect.top;
+        ctl.curMouse_.x = ev.clientX - rect.left;
+        ctl.curMouse_.y = ev.clientY - rect.top;
 
-        ctl.dragging = true;
+        ctl.dragging_ = true;
 
         if (ctl.highlightedVertInd >= 0) {
-            ctl.selectedVertInd = ctl.highlightedVertInd;
-            ctl.selectedAxis = ctl.highlightedAxis;
+            ctl.selectedVertInd_ = ctl.highlightedVertInd;
+            ctl.selectedAxis_ = ctl.highlightedAxis;
 
         }
         else {
-            ctl.selectedVertInd = -1;
-            ctl.selectedAxis = -1;
+            ctl.selectedVertInd_ = -1;
+            ctl.selectedAxis_ = -1;
         }
     };
 
     // Assign a mouse up handler to the HTML element.
     element.onmouseup = function(ev) {
-        ctl.dragging = false;
+        ctl.dragging_ = false;
 
     };
 
@@ -160,12 +165,12 @@ InputController = function(doc,element,cm,wd) {
         var height = ctl.canvas_.height;
         var curY = height - (ev.clientY - rect.top);
 
-        if (ctl.dragging) {
+        if (ctl.dragging_) {
             curY = ev.clientY - rect.top;
-            var deltaX = (ctl.curX - curX) / ctl.scaleFactor;
-            var deltaY = (ctl.curY - curY) / ctl.scaleFactor;
-            ctl.curX = curX;
-            ctl.curY = curY;
+            var deltaX = (ctl.curMouse_.x - curX) / ctl.scaleFactor;
+            var deltaY = (ctl.curMouse_.y - curY) / ctl.scaleFactor;
+            ctl.curMouse_.x = curX;
+            ctl.curMouse_.y = curY;
             // Update the X and Y rotation angles based on the mouse motion.
             ctl.yRot = (ctl.yRot + deltaX) % 360;
             ctl.xRot = (ctl.xRot + deltaY);
@@ -177,9 +182,9 @@ InputController = function(doc,element,cm,wd) {
             ctl.onMouseMove();
         }
         else {
-            ctl.curX = curX;
-            ctl.curY = curY;
-            if (ctl.holdchar == 32 && ctl.selectedVertInd>=0) { }
+            ctl.curMouse_.x = curX;
+            ctl.curMouse_.y = curY;
+            if (ctl.holdchar_ == 32 && ctl.selectedVertInd_>=0) { }
             else {
                 var mrp = unproject(curX, curY, 0, ctl.modelviewProjInvTHREE, width, height);
                 var mrd = unproject(curX, curY, 1, ctl.modelviewProjInvTHREE, width, height).sub(mrp).normalize();
@@ -202,10 +207,16 @@ InputController = function(doc,element,cm,wd) {
 InputController.prototype = {
     constructor: InputController,
     updateMat: function () {
-        this.modelviewProj.loadIdentity();
+        this.modelviewProj.identity();
+	log("" + this.modelviewProj.elements[0]);
+	log("" + this.modelview.elements[0]);
         this.modelviewProj.multiply(this.modelview);
+	log("" + this.modelviewProj.elements[0]);
         this.modelviewProj.multiply(this.proj);
-        this.modelviewProjInv = this.modelviewProj.inverse();
-        this.modelviewProjInvTHREE.copy(this.modelviewProjInv);
+	log("" + this.modelviewProj.elements[0]);
+        this.modelviewProjInv.getInverse(this.modelviewProj);
+	log("" + this.modelviewProjInv.elements[0]);
+        //this.modelviewProjInvTHREE.copy(this.modelviewProjInv);
+	this.modelviewProjInvTHREE = this.modelviewProjInv;
     }
 }

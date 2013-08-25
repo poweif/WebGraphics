@@ -29,24 +29,23 @@
  */
 
 var gl = null;
-var _controller = null;
+var controller_ = null;
 
-var _shaderPhong = null;
-var _shaderWireframe = null;
-var _shaderPointWidget = null;
+var shaderPhong_ = null;
+var shaderWireframe_ = null;
+var shaderPointWidget_ = null;
 
-var _width;
-var _height;
+var width_;
+var height_;
 
-var _controlMesh = new RMesh();
-var _world = null;
-var _worldMesh = null;
+var controlMesh_ = new RMesh();
+var world_ = null;
 
-var _highlightFace = new Object();
-var _zoomDiff = 0;
+var highlightFace_ = new Object();
+var zoomDiff_ = 0;
 
-var _testImage = new Image();
-var _testTex = null; 
+var testImage_ = new Image();
+var testTex_ = null;
 
 
 var POINT_WIDGET_RANGE = .17;
@@ -59,40 +58,40 @@ function main() {
     var ratio = window.devicePixelRatio ? window.devicePixelRatio : 1;
     var mwidth = document.getElementById("c").getAttribute("style");
 
-    _width = c.width;
-    _height = c.height;
+    width_ = c.width;
+    height_ = c.height;
 
     gl = WebGLUtils.setupWebGL(c);
     if (!gl)
         return;
-    _world = new World(gl);
-    _controller = new InputController(document, c, _controlMesh, _world);
+    world_ = new World(gl);
+    controller_ = new InputController(document, c, controlMesh_, world_);
 
-    _controller.onMouseMove = function () {
+    controller_.onMouseMove = function () {
         draw();
     };
 
-    _controller.updateMeshes = function () {
+    controller_.updateMeshes = function () {
         //updateMeshes();
-        _world.runUpdate(); 
+        world_.runUpdate(); 
         draw();
     }
-    _controller.updateHighlightedFace = function () {
+    controller_.updateHighlightedFace = function () {
         updateHighlightedFace();
         draw();
     }
 
-    _controller.zoomIn = function () {
+    controller_.zoomIn = function () {
         var mdim = 1<<World.MAX_LEVEL;
-        _zoomDiff += mdim * .02;
+        zoomDiff_ += mdim * .02;
     }
 
-    _controller.zoomOut = function () {
+    controller_.zoomOut = function () {
         var mdim = 1 << World.MAX_LEVEL;
-        _zoomDiff -= mdim * .02;
+        zoomDiff_ -= mdim * .02;
     }
 
-    _testTex = new Texture(gl, 0, 0, "1");
+    testTex_ = new Texture(gl, 0, 0, "1");
 
     init();
 }
@@ -136,9 +135,9 @@ function init() {
     gl.lineWidth(10);
     gl.enable(gl.DEPTH_TEST);
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
-    _shaderPhong = initPhongShaders(gl);
-    _shaderWireframe = initWireframeShaders(gl);
-    _shaderPointWidget = initPointWidgetShaders(gl);
+    shaderPhong_ = initPhongShaders(gl);
+    shaderWireframe_ = initWireframeShaders(gl);
+    shaderPointWidget_ = initPointWidgetShaders(gl);
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -179,8 +178,8 @@ function initMesh() {
         step, step);
 
     for (var i = 0; i < r1.length; i++) {
-        _controlMesh.addVert(r1[i].x, r1[i].y, r1[i].z);
-        _controlMesh.addVert(r2[i].x, r2[i].y, r2[i].z);
+        controlMesh_.addVert(r1[i].x, r1[i].y, r1[i].z);
+        controlMesh_.addVert(r2[i].x, r2[i].y, r2[i].z);
     }
 
     r1 = gridInterp(
@@ -197,8 +196,8 @@ function initMesh() {
         step, step);
 
     for (var i = 0; i < r1.length; i++) {
-        _controlMesh.addVert(r1[i].x, r1[i].y, r1[i].z);
-        _controlMesh.addVert(r2[i].x, r2[i].y, r2[i].z);
+        controlMesh_.addVert(r1[i].x, r1[i].y, r1[i].z);
+        controlMesh_.addVert(r2[i].x, r2[i].y, r2[i].z);
     }
 
     r1 = gridInterp(
@@ -215,11 +214,11 @@ function initMesh() {
         step, step);
 
     for (var i = 0; i < r1.length; i++) {
-        _controlMesh.addVert(r1[i].x, r1[i].y, r1[i].z);
-        _controlMesh.addVert(r2[i].x, r2[i].y, r2[i].z);
+        controlMesh_.addVert(r1[i].x, r1[i].y, r1[i].z);
+        controlMesh_.addVert(r2[i].x, r2[i].y, r2[i].z);
     }
 
-    var verts = _controlMesh.verts;
+    var verts = controlMesh_.verts;
     var d = new THREE.Vector3(1,1,1);
 
     var dim = 1 << World.MAX_LEVEL;
@@ -227,32 +226,32 @@ function initMesh() {
     for (var i = 0; i < verts.length; i++) 
         verts[i].add(d).multiplyScalar(.5*dim);
  
-    _controlMesh.faces = [];//_controlMesh.quads;        
+    controlMesh_.faces = [];//controlMesh_.quads;        
     updateMeshes();
 }
 
 function updateMeshes() {
     
-    _controlMesh.updateGLArray(RMesh.DRAW_ELEMENT_UPDATE);
+    controlMesh_.updateGLArray(RMesh.DRAW_ELEMENT_UPDATE);
 
-    if (!_controlMesh.vbo) {
-        _controlMesh.vbo = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, _controlMesh.vbo);
-        gl.bufferData(gl.ARRAY_BUFFER, _controlMesh.vertsflat, gl.STATIC_DRAW);
+    if (!controlMesh_.vbo) {
+        controlMesh_.vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, controlMesh_.vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, controlMesh_.vertsflat, gl.STATIC_DRAW);
     }
 
     updateHighlightedFace();
 }
 
 function updateHighlightedFace() {
-    if (_controller.highlightedFace) {
-        if (_highlightFace.vbo)
-            gl.deleteBuffer(_highlightFace.vbo);
-        _highlightFace.vbo = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, _highlightFace.vbo);
+    if (controller_.highlightedFace) {
+        if (highlightFace_.vbo)
+            gl.deleteBuffer(highlightFace_.vbo);
+        highlightFace_.vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, highlightFace_.vbo);
 
-        var p = _controller.highlightedFace[0];
-        var side = _controller.highlightedFace[1];
+        var p = controller_.highlightedFace[0];
+        var side = controller_.highlightedFace[1];
         var basep = new THREE.Vector3(p[0], p[1], p[2]);
         var npts = [];
         for (var i = 0; i < Block.cubeVerts.length; i++)
@@ -286,45 +285,48 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     // Set up the model, view and projection matrices
-    var pj = _controller.proj;
-    pj.loadIdentity();
-    pj.perspective(45, _width / _height, 0.1, 25000);
+    var pj = controller_.proj;
+    pj.identity();
+    //pj.perspective(45, width_ / height_, 0.1, 25000);
+    pj.makePerspective(45, width_ / height_, 0.1, 25000);
 
     // Add in camera controller's rotation
-    var mv = _controller.modelview;
-    mv.loadIdentity();
-    mv.translate(0, 0, -wdim * 2 + _zoomDiff);
-    mv.rotate(_controller.xRot, 1, 0, 0);
-    mv.rotate(_controller.yRot, 0, 1, 0);
+    var mv = controller_.modelview;
+    mv.identity();
+    mv.translate(0, 0, -wdim * 2 + zoomDiff_);
+    mv.rotateX(controller_.xRot);
+    mv.rotateY(controller_.yRot);
+    //mv.rotate(controller_.xRot, 1, 0, 0);
+    //mv.rotate(controller_.yRot, 0, 1, 0);
     mv.translate(-wdim / 2, -wdim / 2, -wdim/2);
 
-    _controller.updateMat();
+    controller_.updateMat();
 
     // Compute necessary matrices
-    var mvp = _controller.modelviewProj;
-    var modelviewInvT = mv.inverse();
+    var mvp = controller_.modelviewProj;
+    var modelviewInvT = mv.getInverse();
     modelviewInvT.transpose();
 
     var mv32 = new Float32Array(mv.elements);
     var mvit32 = new Float32Array(modelviewInvT.elements);
     var mvp32 = new Float32Array(mvp.elements);
    
-    var shader = _shaderWireframe;
+    var shader = shaderWireframe_;
     
     gl.useProgram(shader.id);
     
     // Set up uniforms
     gl.uniformMatrix4fv(shader.mvpLoc, gl.FALSE, mvp32);
-    gl.bindBuffer(gl.ARRAY_BUFFER, _controlMesh.vbo);
+    gl.bindBuffer(gl.ARRAY_BUFFER, controlMesh_.vbo);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
     gl.enableVertexAttribArray(0);
     gl.disableVertexAttribArray(1);
-    gl.drawArrays(gl.LINES, 0, _controlMesh.vertsflat.length / 3);
+    gl.drawArrays(gl.LINES, 0, controlMesh_.vertsflat.length / 3);
     
     gl.disableVertexAttribArray(0);
     gl.disableVertexAttribArray(1);   
 
-    shader = _shaderPhong;
+    shader = shaderPhong_;
     gl.useProgram(shader.id);
 
     // Set up uniforms
@@ -333,10 +335,10 @@ function draw() {
     gl.uniformMatrix4fv(shader.mvpLoc, gl.FALSE, mvp32);
 
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, _testTex.id);
+    gl.bindTexture(gl.TEXTURE_2D, testTex_.id);
     gl.uniform1i(shader.quadtex, 0);
 
-    var bucs = _world.bmBuckets.buckets;
+    var bucs = world_.bmBuckets.buckets;
     for (var i = 0; i < bucs.length; i++) {
         if (bucs[i].vbo && bucs[i].nbo) {
             gl.bindBuffer(gl.ARRAY_BUFFER, bucs[i].vbo);
@@ -352,12 +354,12 @@ function draw() {
         }
     }
 
-    if (_controller.highlightedFace) {
-        shader = _shaderPointWidget;
+    if (controller_.highlightedFace) {
+        shader = shaderPointWidget_;
         gl.useProgram(shader.id);
         gl.uniformMatrix4fv(shader.mvpLoc, gl.FALSE, mvp32);
         gl.uniform4f(shader.colorLoc, 1, 0, 0, .4);
-        gl.bindBuffer(gl.ARRAY_BUFFER, _highlightFace.vbo);
+        gl.bindBuffer(gl.ARRAY_BUFFER, highlightFace_.vbo);
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
         gl.enableVertexAttribArray(0);
         gl.disableVertexAttribArray(1);
