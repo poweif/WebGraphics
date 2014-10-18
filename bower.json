@@ -1,0 +1,14 @@
+{
+  "name": "web-graphics",
+  "version": "0.0.1",
+  "authors": [
+  ],
+  "license": "",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components"
+  ],
+  "dependencies": {
+  }
+}
