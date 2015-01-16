@@ -53,7 +53,7 @@ function main() {
 
     var ratio = window.devicePixelRatio ? window.devicePixelRatio : 1;
     var mwidth = document.getElementById("c").getAttribute("style");
-    
+
     _width = c.width;
     _height = c.height;
 
@@ -61,7 +61,7 @@ function main() {
     if (!gl)
         return;
     _controller = new InputController(document, c, _controlMesh);
-    
+
     _controller.onchange = function (xRot, yRot) {
         draw();
     };
@@ -123,7 +123,7 @@ function init() {
 
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    
+
     initMesh();
     draw();
 }
@@ -147,11 +147,11 @@ function initMesh() {
 
     //_controlMesh.splitFace(0);
     _controlMesh.faces = _controlMesh.quads;
-    
+
     updateMeshes();
 
     var sc = .3;
-    var pwmesh = createPointWidgetMeshes(); 
+    var pwmesh = createPointWidgetMeshes();
     var pwcolors = [];
 
     for (var i = 0; i < 18; i++) {
@@ -169,7 +169,7 @@ function initMesh() {
         pwcolors.push(0);
         pwcolors.push(1);
     }
-    
+
     _pointWidgetVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, _pointWidgetVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pwmesh.vertsflat), gl.STATIC_DRAW);
@@ -210,7 +210,7 @@ function updateMeshes() {
     _subdivMesh = new RMesh(res[0], res[1]);
     _subdivMesh.updateNormals(RMesh.PER_FACE_NORMALS);
     _subdivMesh.updateGLArray(RMesh.DRAW_ARRAY_UPDATE);
-    
+
 
     _subdivMesh.vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, _subdivMesh.vbo);
@@ -264,7 +264,7 @@ function draw() {
         gl.drawElements(gl.LINE_LOOP, _controlMesh.faces[i].length, gl.UNSIGNED_SHORT, total*2);
         total += _controlMesh.faces[i].length;
     }
-    
+
     var highlightedVert = _controller.highlightedVertInd;
     var highlightedAxis = _controller.highlightedAxis;
     if (highlightedVert >= 0) {
@@ -283,7 +283,7 @@ function draw() {
         mv.translate(vv.x, vv.y, vv.z);
         var sc = POINT_WIDGET_RANGE;
         mv.scale(sc, sc, sc);
-        
+
         _controller.updateMat();
         mvp = _controller.modelviewProj;
 
@@ -324,28 +324,28 @@ function draw() {
         /**/
         mv.loadIdentity();
         mv.multiply(oldmv);
-        _controller.updateMat();        
+        _controller.updateMat();
     }
-    
+
     shader = _shaderPhong;
     gl.useProgram(shader.id);
-        
+
     // Set up uniforms
     gl.uniformMatrix4fv(shader.mvLoc, gl.FALSE, mv32);
     gl.uniformMatrix4fv(shader.mvInvTLoc, gl.FALSE, mvit32);
     gl.uniformMatrix4fv(shader.mvpLoc, gl.FALSE, mvp32);
-    
+
     gl.bindBuffer(gl.ARRAY_BUFFER, _subdivMesh.vbo);
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
     gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 12, 0);
-    
+
     gl.bindBuffer(gl.ARRAY_BUFFER, _subdivMesh.nbo);
     gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 12, 0);
-    
+
     gl.drawArrays(gl.TRIANGLES, 0, _subdivMesh.vertsflat.length / 3);
     /**/
-    
+
     if (_controller.highlightedFace >= 0) {
 
         shader = _shaderPointWidget;
@@ -359,12 +359,11 @@ function draw() {
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, _controlMesh.ebo);
         var total = 0;
         for (var i = 0; i < _controlMesh.faces.length; i++) {
-            if (i == _controller.highlightedFace) 
-                gl.drawElements(gl.TRIANGLE_FAN, _controlMesh.faces[i].length, gl.UNSIGNED_SHORT, total * 2);            
+            if (i == _controller.highlightedFace)
+                gl.drawElements(gl.TRIANGLE_FAN, _controlMesh.faces[i].length, gl.UNSIGNED_SHORT, total * 2);
             total += _controlMesh.faces[i].length;
         }
     }
    /* */
     //checkGLError();
 }
-
