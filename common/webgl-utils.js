@@ -134,7 +134,8 @@ var create3DContext = function(canvas, opt_attribs) {
     try {
       context = canvas.getContext(names[ii], opt_attribs);
     } catch(e) {}
-    if (context) {
+      if (context) {
+          console.log("break on " + names[ii]);
       break;
     }
   }

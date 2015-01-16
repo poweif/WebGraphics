@@ -65,6 +65,7 @@ function main() {
     _height = c.height;
 
     gl = WebGLUtils.setupWebGL(c);
+//    console.log("gl: " + gl.FALSE);
     if (!gl)
         return;
     controller = new CameraController(c);
@@ -321,7 +322,7 @@ function draw() {
     var viewInverse = view.inverse();
 
     // Set up uniforms
-    gl.uniformMatrix4fv(_worldLoc, gl.FALSE, new Float32Array(model.elements));
+    gl.uniformMatrix4fv(_worldLoc, false, new Float32Array(model.elements));
     gl.uniformMatrix4fv(_worldInverseTransposeLoc, gl.FALSE, new Float32Array(worldInverseTranspose.elements));
     gl.uniformMatrix4fv(_worldViewProjLoc, gl.FALSE, new Float32Array(mvp.elements));
     gl.uniformMatrix4fv(_viewInverseLoc, gl.FALSE, new Float32Array(viewInverse.elements));

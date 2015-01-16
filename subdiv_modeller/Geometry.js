@@ -491,8 +491,11 @@ function createPointWidgetMeshes() {
     ret.addTri(7, 8, 5);
    // ret.addTri(6, 4, 7);
     
-    ret.updateNormals(RMesh.PER_FACE_NORMALS);
-    ret.updateGLArray(RMesh.DRAW_ARRAY_UPDATE);
+//    ret.updateNormals(RMesh.PER_FACE_NORMALS);
+    //    ret.updateGLArray(RMesh.DRAW_ARRAY_UPDATE);
+
+    ret.updateNormals(RMesh.PER_VERTEX_NORMALS);
+    ret.updateGLArray(RMesh.DRAW_ELEMENT_UPDATE);
 
     return ret; 
 }
